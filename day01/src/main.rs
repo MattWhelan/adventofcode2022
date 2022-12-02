@@ -1,9 +1,12 @@
 fn main() {
-    let input: Vec<Vec<u32>> = INPUT.split("\n\n")
+    let input: Vec<Vec<u32>> = INPUT
+        .split("\n\n")
         .map(|elf| elf.lines().map(|l| l.parse::<u32>().unwrap()).collect())
         .collect();
 
-    let elf_cals: Vec<_> = input.iter().map(|e_cals| e_cals.iter().sum::<u32>())
+    let elf_cals: Vec<_> = input
+        .iter()
+        .map(|e_cals| e_cals.iter().sum::<u32>())
         .collect();
 
     let max_elf_cals = elf_cals.iter().max().unwrap();
@@ -18,7 +21,7 @@ fn main() {
     println!("Part 2: {}", top_three);
 }
 
-static INPUT: &str = r#"17034
+const INPUT: &str = r#"17034
 
 13495
 7368
