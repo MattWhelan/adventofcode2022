@@ -1,34 +1,37 @@
-use std::collections::HashSet;
 use anyhow::Result;
+use std::collections::HashSet;
 use std::str::FromStr;
 
 #[derive(Debug)]
 struct Rucksack {
     top: Vec<u32>,
-    bottom: Vec<u32>
+    bottom: Vec<u32>,
 }
 
 impl FromStr for Rucksack {
     type Err = anyhow::Error;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let contents: Vec<u32> = s.chars().map(|ch| match ch {
-            'a'..='z' => u32::from(ch) - u32::from('a') + 1,
-            'A'..='Z' => u32::from(ch) - u32::from('A') + 27,
-            _ => panic!("No match")
-        }).collect();
+        let contents: Vec<u32> = s
+            .chars()
+            .map(|ch| match ch {
+                'a'..='z' => u32::from(ch) - u32::from('a') + 1,
+                'A'..='Z' => u32::from(ch) - u32::from('A') + 27,
+                _ => panic!("No match"),
+            })
+            .collect();
 
-        let top = Vec::from(&contents[0..contents.len()/2]);
-        let bottom = Vec::from(&contents[contents.len()/2..]);
-        Ok(Rucksack {
-            top, bottom
-        })
+        let top = Vec::from(&contents[0..contents.len() / 2]);
+        let bottom = Vec::from(&contents[contents.len() / 2..]);
+        Ok(Rucksack { top, bottom })
     }
 }
 
 impl Rucksack {
     fn in_both(&self) -> u32 {
-        let result = self.top.iter()
+        let result = self
+            .top
+            .iter()
             .filter(|&item| self.bottom.contains(item))
             .next();
         return *result.unwrap();
@@ -40,18 +43,19 @@ impl Rucksack {
 }
 
 fn all_intersect(rs: &[Rucksack]) -> u32 {
-    *rs.iter().map(|r| r.all_items())
+    *rs.iter()
+        .map(|r| r.all_items())
         .reduce(|a, b| a.intersection(&b).copied().collect::<HashSet<u32>>())
         .expect("No intersection")
         .iter()
-        .next().expect("Empty intersection")
+        .next()
+        .expect("Empty intersection")
 }
 
 fn main() -> Result<()> {
     let input: Vec<Rucksack> = INPUT.lines().map(|l| l.parse().unwrap()).collect();
 
     println!("Part 1 {}", input.iter().map(|r| r.in_both()).sum::<u32>());
-
 
     let badge_sum = input.chunks(3).map(|rs| all_intersect(rs)).sum::<u32>();
     println!("Part 2 {}", badge_sum);
