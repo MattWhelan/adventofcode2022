@@ -1,7 +1,7 @@
 use std::str::FromStr;
 
 use anyhow::{Error, Result};
-use itertools::{Itertools};
+use itertools::Itertools;
 use lazy_static::lazy_static;
 use regex::Regex;
 
@@ -9,22 +9,22 @@ use regex::Regex;
 struct Move {
     quanity: usize,
     src: usize,
-    dest: usize
+    dest: usize,
 }
 
 impl FromStr for Move {
     type Err = Error;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        lazy_static!{
+        lazy_static! {
             static ref RE: Regex = Regex::new(r"move (\d+) from (\d+) to (\d+)").unwrap();
         }
 
         if let Some(caps) = RE.captures(s) {
             Ok(Move {
                 quanity: caps[1].parse().unwrap(),
-                src: caps[2].parse::<usize>().unwrap()-1,
-                dest: caps[3].parse::<usize>().unwrap()-1,
+                src: caps[2].parse::<usize>().unwrap() - 1,
+                dest: caps[3].parse::<usize>().unwrap() - 1,
             })
         } else {
             Err(Error::msg("no match"))
@@ -56,46 +56,44 @@ impl Move {
 
 fn parse(input: &str) -> (Vec<Vec<char>>, Vec<Move>) {
     let parts: Vec<_> = input.split("\n\n").collect();
-    let diag = parts[0].lines()
+    let stacks = parts[0]
+        .lines()
         .map(|l| {
             l.chars()
                 .chunks(4)
                 .into_iter()
-                .map(|chs| chs
-                    .skip(1)
-                    .next()
-                    .and_then(|ch| if ch == ' ' {
-                        None
-                    } else if ch.is_digit(10) {
-                        None
-                    } else {
-                        Some(ch)
+                .map(|chs| {
+                    chs.skip(1).next().and_then(|ch| {
+                        if ch == ' ' {
+                            None
+                        } else if ch.is_digit(10) {
+                            None
+                        } else {
+                            Some(ch)
+                        }
                     })
-                )
+                })
                 .collect::<Vec<Option<char>>>()
         })
         .fold(Vec::new(), |mut acc, row| {
-            row.iter().enumerate()
-                .for_each(|(i, ch)| {
-                    if let Some(c) = ch {
-                        while acc.len() < i + 1 {
-                            acc.push(Vec::new());
-                        }
-                        acc[i].insert(0, *c);
+            row.iter().enumerate().for_each(|(i, ch)| {
+                if let Some(c) = ch {
+                    while acc.len() < i + 1 {
+                        acc.push(Vec::new());
                     }
-                });
+                    acc[i].insert(0, *c);
+                }
+            });
             acc
         });
 
     let moves = parts[1].lines().map(|l| l.parse().unwrap()).collect();
 
-    (diag, moves)
+    (stacks, moves)
 }
 
 fn tops(stacks: &Vec<Vec<char>>) -> String {
-    stacks.iter()
-        .map(|s| s.last().unwrap())
-        .collect()
+    stacks.iter().map(|s| s.last().unwrap()).collect()
 }
 
 fn main() -> Result<()> {
