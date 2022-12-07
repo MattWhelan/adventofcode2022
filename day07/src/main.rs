@@ -3,7 +3,7 @@ use itertools::Itertools;
 use std::str::FromStr;
 
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
-enum Entry {
+enum LogEntry {
     Ls,
     CdRoot,
     CdUp,
@@ -12,29 +12,29 @@ enum Entry {
     Dir { name: String },
 }
 
-impl FromStr for Entry {
+impl FromStr for LogEntry {
     type Err = Error;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         if s.starts_with("$") {
             if s == "$ ls" {
-                Ok(Entry::Ls)
+                Ok(LogEntry::Ls)
             } else if s == "$ cd /" {
-                Ok(Entry::CdRoot)
+                Ok(LogEntry::CdRoot)
             } else if s == "$ cd .." {
-                Ok(Entry::CdUp)
+                Ok(LogEntry::CdUp)
             } else {
                 let dir = s["$ cd ".len()..].to_string();
-                Ok(Entry::Cd { dir })
+                Ok(LogEntry::Cd { dir })
             }
         } else if s.starts_with("dir ") {
-            Ok(Entry::Dir {
+            Ok(LogEntry::Dir {
                 name: s[4..].to_string(),
             })
         } else {
             if let Some((size_str, name)) = s.splitn(2, " ").collect_tuple() {
                 let size: usize = size_str.parse().unwrap();
-                Ok(Entry::File {
+                Ok(LogEntry::File {
                     name: name.to_string(),
                     size,
                 })
@@ -45,13 +45,13 @@ impl FromStr for Entry {
     }
 }
 
-struct Directory {
+struct DirEntry {
     name: String,
     size: usize,
-    contents: Vec<Directory>,
+    contents: Vec<DirEntry>,
 }
 
-impl Directory {
+impl DirEntry {
     fn contained_size(&self) -> usize {
         self.size
             + self
@@ -61,55 +61,75 @@ impl Directory {
                 .sum::<usize>()
     }
 
-    fn traversal<F: FnMut(&Self)>(&self, f: &mut F) {
-        f(self);
-        for d in self.contents.iter() {
-            d.traversal(f)
+    fn iter(&self) -> DirDfsIterator {
+        DirDfsIterator::new(self)
+    }
+}
+
+struct DirDfsIterator<'a> {
+    stack: Vec<&'a DirEntry>,
+}
+
+impl<'a> DirDfsIterator<'a> {
+    fn new(root: &'a DirEntry) -> Self {
+        DirDfsIterator { stack: vec![root] }
+    }
+}
+
+impl<'a> Iterator for DirDfsIterator<'a> {
+    type Item = &'a DirEntry;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if let Some(e) = self.stack.pop() {
+            self.stack.extend(e.contents.iter());
+            Some(e)
+        } else {
+            None
         }
     }
 }
 
-struct Parser<'a, T: Iterator<Item = &'a Entry>> {
+struct Parser<'a, T: Iterator<Item = &'a LogEntry>> {
     it: T,
 }
 
-impl<'a, T: Iterator<Item = &'a Entry>> Parser<'a, T> {
+impl<'a, T: Iterator<Item = &'a LogEntry>> Parser<'a, T> {
     fn new(it: T) -> Self {
         Parser { it }
     }
 
-    fn parse_contents(&mut self) -> Vec<Directory> {
+    fn parse_contents(&mut self) -> Vec<DirEntry> {
         let mut ret = Vec::new();
         while let Some(e) = self.it.next() {
             match e {
-                Entry::Ls => {}
-                Entry::CdRoot => {}
-                Entry::CdUp => {
+                LogEntry::Ls => {}
+                LogEntry::CdRoot => {}
+                LogEntry::CdUp => {
                     break;
                 }
-                Entry::Cd { dir } => {
+                LogEntry::Cd { dir } => {
                     let contents = self.parse_contents();
-                    ret.push(Directory {
+                    ret.push(DirEntry {
                         name: dir.to_string(),
                         size: 0,
                         contents,
                     });
                 }
-                Entry::File { name, size } => ret.push(Directory {
+                LogEntry::File { name, size } => ret.push(DirEntry {
                     name: name.to_string(),
                     size: *size,
                     contents: Vec::new(),
                 }),
-                Entry::Dir { .. } => {}
+                LogEntry::Dir { .. } => {}
             }
         }
 
         ret
     }
 
-    fn parse(it: T) -> Directory {
+    fn parse(it: T) -> DirEntry {
         let contents = Self::new(it).parse_contents();
-        return Directory {
+        return DirEntry {
             name: String::new(),
             size: 0,
             contents,
@@ -118,21 +138,22 @@ impl<'a, T: Iterator<Item = &'a Entry>> Parser<'a, T> {
 }
 
 fn main() -> Result<()> {
-    let input: Vec<Entry> = INPUT.lines().map(|l| l.parse().unwrap()).collect();
+    let input: Vec<LogEntry> = INPUT.lines().map(|l| l.parse().unwrap()).collect();
 
     let root = Parser::parse(input.iter());
 
     {
-        let mut total: usize = 0;
-        {
-            let sum = &mut total;
-            root.traversal(&mut |d| {
+        let total: usize = root
+            .iter()
+            .map(|d| {
                 let s = d.contained_size();
                 if s <= 100_000 && !d.name.is_empty() && !d.contents.is_empty() {
-                    *sum += s;
+                    s
+                } else {
+                    0
                 }
-            });
-        }
+            })
+            .sum();
         println!("Part 1: {}", total);
     }
 
@@ -141,18 +162,18 @@ fn main() -> Result<()> {
         let target_space = 30000000;
         let to_free = target_space - (total_space - root.contained_size());
 
-        let mut best_size = root.contained_size();
-        {
-            let best = &mut best_size;
-            root.traversal(&mut |d| {
+        let best_size = root
+            .iter()
+            .filter_map(|d| {
                 let s = d.contained_size();
                 if s >= to_free && !d.contents.is_empty() {
-                    if s < *best {
-                        *best = s;
-                    }
+                    Some(s)
+                } else {
+                    None
                 }
-            });
-        }
+            })
+            .min()
+            .unwrap();
         println!("Part 2: {}", best_size);
     }
 
