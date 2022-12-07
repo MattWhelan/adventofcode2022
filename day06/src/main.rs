@@ -1,6 +1,5 @@
 use anyhow::Result;
 use itertools::Itertools;
-use std::collections::HashSet;
 
 fn main() -> Result<()> {
     let chars: Vec<char> = INPUT.chars().collect();
@@ -17,11 +16,7 @@ fn main() -> Result<()> {
 fn find_uniques(chars: &[char], n: usize) -> usize {
     let (i, _) = chars
         .windows(n)
-        .enumerate()
-        .find_or_first(|(_, w)| {
-            let s: HashSet<char> = w.into_iter().copied().collect();
-            s.len() == w.len()
-        })
+        .find_position(|w| w.iter().unique().count() == w.len())
         .unwrap();
     i + n
 }
