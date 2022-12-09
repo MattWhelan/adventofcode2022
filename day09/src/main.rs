@@ -1,105 +1,47 @@
 use std::collections::HashSet;
-use std::str::FromStr;
 
 use anyhow::{Error, Result};
 use itertools::Itertools;
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
 enum Dir {
-    Up(i32),
-    Down(i32),
-    Left(i32),
-    Right(i32),
+    Up,
+    Down,
+    Left,
+    Right,
 }
 
 impl Dir {
-    fn do_move(&mut self, (x, y): (i32, i32)) -> (i32, i32) {
+    fn do_move(&self, (x, y): (i32, i32)) -> (i32, i32) {
         match self {
-            Dir::Up(n) => {
-                *n -= 1;
-                (x, y - 1)
-            }
-            Dir::Down(n) => {
-                *n -= 1;
-                (x, y + 1)
-            }
-            Dir::Left(n) => {
-                *n -= 1;
-                (x - 1, y)
-            }
-            Dir::Right(n) => {
-                *n -= 1;
-                (x + 1, y)
-            }
-        }
-    }
-
-    fn is_zero(&self) -> bool {
-        match self {
-            Dir::Up(0) => true,
-            Dir::Down(0) => true,
-            Dir::Left(0) => true,
-            Dir::Right(0) => true,
-            _ => false
+            Dir::Up => (x, y - 1),
+            Dir::Down => (x, y + 1),
+            Dir::Left => (x - 1, y),
+            Dir::Right => (x + 1, y),
         }
     }
 }
 
-impl FromStr for Dir {
-    type Err = Error;
-
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
+impl Dir {
+    fn from_str(s: &str) -> Result<Vec<Self>, Error> {
         let (dir, n) = s.splitn(2, " ").collect_tuple().unwrap();
 
-        let n = n.parse::<i32>().unwrap();
+        let n = n.parse::<usize>().unwrap();
         match dir {
-            "U" => Ok(Dir::Up(n)),
-            "D" => Ok(Dir::Down(n)),
-            "L" => Ok(Dir::Left(n)),
-            "R" => Ok(Dir::Right(n)),
-            _ => Err(Error::msg("Nope."))
-        }
-    }
-}
-
-fn tail_pos((hx, hy): (i32, i32), (tx, ty): (i32, i32)) -> (i32, i32) {
-    if let Some(_) = (-1..=1).flat_map(|dx| (-1..=1).map(move |dy| (hx + dx, hy + dy)))
-        .find(|pos| *pos == (tx, ty)) {
-        (tx, ty)
-    } else {
-        let dx = (hx-tx).abs();
-        let dy = (hy-ty).abs();
-
-        if dx > dy {
-            if tx < hx {
-                (hx - 1, hy)
-            } else {
-                (hx + 1, hy)
-            }
-        } else if dx == dy {
-            let ret_x = if tx < hx {
-                hx - 1
-            } else {
-                hx + 1
-            };
-            let ret_y = if ty < hy {
-                hy-1
-            } else {
-                hy+1
-            };
-            (ret_x, ret_y)
-        } else {
-            if ty < hy {
-                (hx, hy-1)
-            } else {
-                (hx, hy+1)
-            }
+            "U" => Ok(vec![Dir::Up; n]),
+            "D" => Ok(vec![Dir::Down; n]),
+            "L" => Ok(vec![Dir::Left; n]),
+            "R" => Ok(vec![Dir::Right; n]),
+            _ => Err(Error::msg("Nope.")),
         }
     }
 }
 
 fn main() -> Result<()> {
-    let input: Vec<Dir> = INPUT.lines().map(|l| l.parse().unwrap()).collect();
+    let input: Vec<Dir> = INPUT
+        .lines()
+        .flat_map(|l| Dir::from_str(l).unwrap())
+        .collect();
 
     let tail_points = simulate_rope(&input, 2);
     println!("Part 1: {}", tail_points.len());
@@ -109,33 +51,62 @@ fn main() -> Result<()> {
     Ok(())
 }
 
+fn tail_pos((hx, hy): (i32, i32), (tx, ty): (i32, i32)) -> (i32, i32) {
+    // Is it already a neighbor? Then it doesn't move
+    if let Some(_) = (-1..=1)
+        .flat_map(|dx| (-1..=1).map(move |dy| (hx + dx, hy + dy)))
+        .find(|pos| *pos == (tx, ty))
+    {
+        (tx, ty)
+    } else {
+        // It's going to end up next to the head, but differing by 1 in the direction that they differ most
+        let dx = (hx - tx).abs();
+        let dy = (hy - ty).abs();
+
+        if dx > dy {
+            if tx < hx {
+                (hx - 1, hy)
+            } else {
+                (hx + 1, hy)
+            }
+        } else if dx == dy {
+            // Diagonal case; it ends up diagonal
+            let ret_x = if tx < hx { hx - 1 } else { hx + 1 };
+            let ret_y = if ty < hy { hy - 1 } else { hy + 1 };
+            (ret_x, ret_y)
+        } else {
+            if ty < hy {
+                (hx, hy - 1)
+            } else {
+                (hx, hy + 1)
+            }
+        }
+    }
+}
+
 fn simulate_rope(input: &[Dir], len: usize) -> HashSet<(i32, i32)> {
-    let mut path: Vec<_> = input.iter().copied().collect();
-    let mut knots = vec![(0,0); len];
+    let mut path: Vec<_> = input.iter().rev().copied().collect();
+    let mut knots = vec![(0, 0); len];
 
     let mut tail_points = HashSet::new();
-    tail_points.insert((0,0));
+    tail_points.insert((0, 0));
 
     while !path.is_empty() {
         // Update head
-        let dir = &mut path[0];
+        let dir = path.pop().unwrap();
         knots[0] = dir.do_move(knots[0]);
-
-        if dir.is_zero() {
-            path.remove(0);
-        }
 
         let mut prev_pos = knots[0];
         for knot_pos in knots[1..].iter_mut() {
             *knot_pos = tail_pos(prev_pos, *knot_pos);
             prev_pos = *knot_pos
         }
-        tail_points.insert(knots[knots.len()-1]);
+        tail_points.insert(knots[knots.len() - 1]);
     }
     tail_points
 }
 
-const TEST: &str = r#"R 5
+const _TEST: &str = r#"R 5
 U 8
 L 8
 D 3

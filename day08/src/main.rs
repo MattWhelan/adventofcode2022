@@ -1,7 +1,7 @@
-use std::ops::Index;
 use anyhow::Result;
-use std::str::FromStr;
 use itertools::Itertools;
+use std::ops::Index;
+use std::str::FromStr;
 
 #[derive(Debug)]
 struct Grid {
@@ -12,71 +12,66 @@ impl FromStr for Grid {
     type Err = anyhow::Error;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let field: Vec<Vec<u32>> = s.lines()
+        let field: Vec<Vec<u32>> = s
+            .lines()
             .map(|l| l.chars().map(|ch| u32::from(ch) - u32::from('0')).collect())
             .collect();
-        Ok(Grid {
-            vals: field
-        })
+        Ok(Grid { vals: field })
     }
 }
 
 impl Grid {
-    fn pos_it(&self) -> impl Iterator<Item=(usize, usize)> + '_ {
-        (0..self.vals.len())
-            .flat_map(move |y| (0..self.vals[y].len()).map(move |x| (x, y)))
+    fn pos_it(&self) -> impl Iterator<Item = (usize, usize)> + '_ {
+        (0..self.vals.len()).flat_map(move |y| (0..self.vals[y].len()).map(move |x| (x, y)))
     }
 
     fn is_visible(&self, (x, y): (usize, usize)) -> bool {
         let value = self[(x, y)];
 
         let check = |dir_opt: Option<u32>| {
-            dir_opt.and_then(|v| if v >= value {
-                Some(v)
-            } else {
-                None
-            }).is_none()
+            dir_opt
+                .and_then(|v| if v >= value { Some(v) } else { None })
+                .is_none()
         };
 
-        let up = (0..y).map(|y1| (x, y1))
-            .map(|pos| self[pos])
-            .max();
+        let up = (0..y).map(|y1| (x, y1)).map(|pos| self[pos]).max();
 
         if check(up) {
-            return true
+            return true;
         }
 
-        let down = (y+1..self.vals.len()).map(|y1| (x, y1))
+        let down = (y + 1..self.vals.len())
+            .map(|y1| (x, y1))
             .map(|pos| self[pos])
             .max();
         if check(down) {
-            return true
+            return true;
         }
 
-        let left = (0..x).map(|x1| (x1, y))
-            .map(|pos| self[pos])
-            .max();
+        let left = (0..x).map(|x1| (x1, y)).map(|pos| self[pos]).max();
 
         if check(left) {
-            return true
+            return true;
         }
 
-        let right = (x+1..self.vals[y].len()).map(|x1| (x1, y))
+        let right = (x + 1..self.vals[y].len())
+            .map(|x1| (x1, y))
             .map(|pos| self[pos])
             .max();
 
         if check(right) {
-            return true
+            return true;
         }
-        return false
+        return false;
     }
 
-    fn view_dist<T: Iterator<Item=(usize, usize)>>(&self, threshold: u32, pos_it: T) -> u32 {
+    fn view_dist<T: Iterator<Item = (usize, usize)>>(&self, threshold: u32, pos_it: T) -> u32 {
         let mut heights: Vec<_> = pos_it.map(|pos| self[pos]).collect();
 
-        heights.iter()
+        heights
+            .iter()
             .find_position(|h| **h >= threshold)
-            .map(|(i, _)| (i+1) as u32)
+            .map(|(i, _)| (i + 1) as u32)
             .unwrap_or(heights.len() as u32)
     }
 
@@ -84,9 +79,9 @@ impl Grid {
         let value = self[(x, y)];
 
         let up = self.view_dist(value, (0..y).rev().map(|y1| (x, y1)));
-        let down = self.view_dist(value, (y+1..self.vals.len()).map(|y1| (x, y1)));
+        let down = self.view_dist(value, (y + 1..self.vals.len()).map(|y1| (x, y1)));
         let left = self.view_dist(value, (0..x).rev().map(|x1| (x1, y)));
-        let right = self.view_dist(value, (x+1..self.vals[y].len()).map(|x1| (x1, y)));
+        let right = self.view_dist(value, (x + 1..self.vals[y].len()).map(|x1| (x1, y)));
 
         up * down * left * right
     }
@@ -103,12 +98,11 @@ impl Index<(usize, usize)> for Grid {
 fn main() -> Result<()> {
     let input: Grid = INPUT.parse().unwrap();
 
-    let visible_count = input.pos_it()
-        .filter(|&pos| input.is_visible(pos))
-        .count();
+    let visible_count = input.pos_it().filter(|&pos| input.is_visible(pos)).count();
     println!("Part 1: {}", visible_count);
 
-    let max_score = input.pos_it()
+    let max_score = input
+        .pos_it()
         .map(|pos| input.scenic_score(pos))
         .max()
         .unwrap();
