@@ -1,15 +1,15 @@
-use std::cell::{RefCell};
 use anyhow::{Error, Result};
-use std::str::FromStr;
 use itertools::Itertools;
 use lazy_static::lazy_static;
 use regex::Regex;
+use std::cell::RefCell;
+use std::str::FromStr;
 
 #[derive(Debug, Copy, Clone)]
 enum Op {
     Add(usize),
     Mul(usize),
-    Square
+    Square,
 }
 
 impl Op {
@@ -29,24 +29,30 @@ struct Monkey {
     op: Op,
     modulus: usize,
     true_target: usize,
-    false_target: usize
+    false_target: usize,
 }
 
 impl FromStr for Monkey {
     type Err = anyhow::Error;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        lazy_static!{
-            static ref RE: Regex = Regex::new(r#"Monkey (\d+):
+        lazy_static! {
+            static ref RE: Regex = Regex::new(
+                r#"Monkey (\d+):
   Starting items: ([\d, ]+)
   Operation: new = old (.) (\d+|old)
   Test: divisible by (\d+)
     If true: throw to monkey (\d+)
-    If false: throw to monkey (\d+)"#).unwrap();
+    If false: throw to monkey (\d+)"#
+            )
+            .unwrap();
         }
 
         if let Some(caps) = RE.captures(s) {
-            let items = caps[2].split(", ").map(|item_str| item_str.parse().unwrap()).collect();
+            let items = caps[2]
+                .split(", ")
+                .map(|item_str| item_str.parse().unwrap())
+                .collect();
             let op = if let Ok(n) = caps[4].parse() {
                 match &caps[3] {
                     "*" => Op::Mul(n),
@@ -85,9 +91,12 @@ impl Forest {
 
         Forest {
             inspection_counts: vec![0; monkeys.len()],
-            monkeys: monkeys.into_iter().map(|m| RefCell::new(m.clone())).collect(),
+            monkeys: monkeys
+                .into_iter()
+                .map(|m| RefCell::new(m.clone()))
+                .collect(),
             very_worried,
-            test_modulus
+            test_modulus,
         }
     }
 
@@ -123,7 +132,8 @@ impl Forest {
     }
 
     fn monkey_business(&self) -> usize {
-        self.inspection_counts.iter()
+        self.inspection_counts
+            .iter()
             .sorted()
             .rev()
             .take(2)

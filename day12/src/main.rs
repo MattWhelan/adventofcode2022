@@ -1,6 +1,6 @@
+use anyhow::Result;
 use std::collections::{HashMap, HashSet};
 use std::ops::Index;
-use anyhow::Result;
 
 #[derive(Debug)]
 struct Map {
@@ -11,36 +11,51 @@ struct Map {
 
 impl Map {
     fn new(map_chars: &Vec<Vec<char>>) -> Map {
-        let heights = map_chars.iter().map(|row| {
-            row.iter().map(|ch| match ch {
-                'S' => 0,
-                'E' => 25,
-                _ => u32::from(*ch) - u32::from('a'),
-            }).collect()
-        }).collect();
-
-        let start= map_chars.iter().enumerate().flat_map(|(y, row)| {
-            row.iter().enumerate().filter_map(move |(x, ch)| match ch {
-                'S' => Some([x, y]),
-                _ => None,
+        let heights = map_chars
+            .iter()
+            .map(|row| {
+                row.iter()
+                    .map(|ch| match ch {
+                        'S' => 0,
+                        'E' => 25,
+                        _ => u32::from(*ch) - u32::from('a'),
+                    })
+                    .collect()
             })
-        }).next().unwrap();
+            .collect();
 
-        let end= map_chars.iter().enumerate().flat_map(|(y, row)| {
-            row.iter().enumerate().filter_map(move |(x, ch)| match ch {
-                'E' => Some([x, y]),
-                _ => None,
+        let start = map_chars
+            .iter()
+            .enumerate()
+            .flat_map(|(y, row)| {
+                row.iter().enumerate().filter_map(move |(x, ch)| match ch {
+                    'S' => Some([x, y]),
+                    _ => None,
+                })
             })
-        }).next().unwrap();
+            .next()
+            .unwrap();
+
+        let end = map_chars
+            .iter()
+            .enumerate()
+            .flat_map(|(y, row)| {
+                row.iter().enumerate().filter_map(move |(x, ch)| match ch {
+                    'E' => Some([x, y]),
+                    _ => None,
+                })
+            })
+            .next()
+            .unwrap();
 
         Map {
             heights,
             start,
-            end
+            end,
         }
     }
 
-    fn neighbors(&self, pt: &[usize; 2]) -> impl Iterator<Item=[usize; 2]> {
+    fn neighbors(&self, pt: &[usize; 2]) -> impl Iterator<Item = [usize; 2]> {
         let mut left = None;
         let mut right = None;
         let mut up = None;
@@ -48,23 +63,23 @@ impl Map {
 
         let [x, y] = pt;
 
-        if *x > 0 && self[pt]+1 >= self[&[x-1, *y]] {
-            left = Some([x-1, *y]);
+        if *x > 0 && self[pt] + 1 >= self[&[x - 1, *y]] {
+            left = Some([x - 1, *y]);
         }
-        if *x + 1 < self.heights[*y].len() && self[pt]+1 >= self[&[x+1, *y]] {
-            right = Some([x+1, *y]);
+        if *x + 1 < self.heights[*y].len() && self[pt] + 1 >= self[&[x + 1, *y]] {
+            right = Some([x + 1, *y]);
         }
-        if *y > 0 && self[pt]+1 >= self[&[*x, y-1]] {
-            up = Some([*x, y-1]);
+        if *y > 0 && self[pt] + 1 >= self[&[*x, y - 1]] {
+            up = Some([*x, y - 1]);
         }
-        if *y + 1 < self.heights.len() && self[pt]+1 >= self[&[*x, y+1]] {
-            down = Some([*x, y+1]);
+        if *y + 1 < self.heights.len() && self[pt] + 1 >= self[&[*x, y + 1]] {
+            down = Some([*x, y + 1]);
         }
 
-        [left, right, up, down].into_iter().filter_map(|x|x)
+        [left, right, up, down].into_iter().filter_map(|x| x)
     }
 
-    fn neighbors_2(&self, pt: &[usize; 2]) -> impl Iterator<Item=[usize; 2]> {
+    fn neighbors_2(&self, pt: &[usize; 2]) -> impl Iterator<Item = [usize; 2]> {
         let mut left = None;
         let mut right = None;
         let mut up = None;
@@ -72,21 +87,20 @@ impl Map {
 
         let [x, y] = pt;
 
-        if *x > 0 && self[pt] <= self[&[x-1, *y]]+1{
-            left = Some([x-1, *y]);
+        if *x > 0 && self[pt] <= self[&[x - 1, *y]] + 1 {
+            left = Some([x - 1, *y]);
         }
-        if *x + 1 < self.heights[*y].len() && self[pt] <= self[&[x+1, *y]]+1 {
-            right = Some([x+1, *y]);
+        if *x + 1 < self.heights[*y].len() && self[pt] <= self[&[x + 1, *y]] + 1 {
+            right = Some([x + 1, *y]);
         }
-        if *y > 0 && self[pt] <= self[&[*x, y-1]]+1 {
-            up = Some([*x, y-1]);
+        if *y > 0 && self[pt] <= self[&[*x, y - 1]] + 1 {
+            up = Some([*x, y - 1]);
         }
-        if *y + 1 < self.heights.len() && self[pt] <= self[&[*x, y+1]]+1 {
-            down = Some([*x, y+1]);
+        if *y + 1 < self.heights.len() && self[pt] <= self[&[*x, y + 1]] + 1 {
+            down = Some([*x, y + 1]);
         }
 
-
-        [left, right, up, down].into_iter().filter_map(|x|x)
+        [left, right, up, down].into_iter().filter_map(|x| x)
     }
 
     fn dijkstra(&self) -> u32 {
@@ -108,7 +122,9 @@ impl Map {
                 });
             visited.insert(current.clone());
 
-            current = distance.iter().filter(|(p, _)| !visited.contains(&**p))
+            current = distance
+                .iter()
+                .filter(|(p, _)| !visited.contains(&**p))
                 .min_by_key(|(_, d)| *d)
                 .unwrap()
                 .0
@@ -138,10 +154,12 @@ impl Map {
             visited.insert(current.clone());
 
             if self[&current] == 0 {
-                break distance[&current]
+                break distance[&current];
             }
 
-            current = distance.iter().filter(|(p, _)| !visited.contains(&**p))
+            current = distance
+                .iter()
+                .filter(|(p, _)| !visited.contains(&**p))
                 .min_by_key(|(_, d)| *d)
                 .unwrap()
                 .0
