@@ -1,9 +1,9 @@
 extern crate core;
 
-use std::cmp::Ordering;
 use anyhow::Result;
 use itertools::Itertools;
 use serde_json::Value;
+use std::cmp::Ordering;
 
 #[derive(Eq, PartialEq, Debug)]
 struct MyValue(Value);
@@ -26,7 +26,8 @@ impl Ord for MyValue {
         if let (Value::Number(l), Value::Number(r)) = (&left.0, &right.0) {
             l.as_u64().unwrap().cmp(&r.as_u64().unwrap())
         } else if let (Value::Array(ls), Value::Array(rs)) = (&left.0, &right.0) {
-            ls.iter().map(|v| <Value as Into<MyValue>>::into(v.clone()))
+            ls.iter()
+                .map(|v| <Value as Into<MyValue>>::into(v.clone()))
                 .cmp(rs.iter().map(|v| v.clone().into()))
         } else {
             if let Value::Number(_) = &left.0 {
@@ -52,25 +53,40 @@ fn main() -> Result<()> {
         })
         .collect();
 
-    let index_sum: usize = input.iter().enumerate()
-        .map(|(i, vs)| (i+1, vs[0].cmp(&vs[1])))
+    let index_sum: usize = input
+        .iter()
+        .enumerate()
+        .map(|(i, vs)| (i + 1, vs[0].cmp(&vs[1])))
         .filter(|(_, ord)| *ord == Ordering::Less)
         .map(|(i, _)| i)
         .sum();
 
     println!("Part 1: {}", index_sum);
 
-    let dividers: Vec<MyValue> = DIVIDERS.lines()
+    let dividers: Vec<MyValue> = DIVIDERS
+        .lines()
         .map(|l| MyValue::from(serde_json::from_str::<Value>(l).unwrap()))
         .collect();
 
-    let with_dividers: Vec<_> = input.iter().flat_map(|vs| vs)
+    let with_dividers: Vec<_> = input
+        .iter()
+        .flat_map(|vs| vs)
         .chain(dividers.iter())
         .sorted()
         .collect();
 
-    let pos_1 = with_dividers.iter().find_position(|p| **p == &dividers[0]).unwrap().0 + 1;
-    let pos_2 = with_dividers.iter().find_position(|p| **p == &dividers[1]).unwrap().0 + 1;
+    let pos_1 = with_dividers
+        .iter()
+        .find_position(|p| **p == &dividers[0])
+        .unwrap()
+        .0
+        + 1;
+    let pos_2 = with_dividers
+        .iter()
+        .find_position(|p| **p == &dividers[1])
+        .unwrap()
+        .0
+        + 1;
 
     println!("Part 2: {}", pos_1 * pos_2);
 
