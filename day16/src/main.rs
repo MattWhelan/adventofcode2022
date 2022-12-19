@@ -1,8 +1,9 @@
-use std::collections::{BTreeSet, HashMap, HashSet};
+use std::collections::{HashMap, HashSet};
 use std::iter::once;
 use std::str::FromStr;
 
 use anyhow::{Error, Result};
+use itertools::Itertools;
 use lazy_static::lazy_static;
 use regex::Regex;
 
@@ -37,7 +38,7 @@ impl FromStr for Valve {
 
 struct Planner {
     valves: HashMap<String, Valve>,
-    node_distances: HashMap<String, HashMap<String, u32>>
+    node_distances: HashMap<String, HashMap<String, u32>>,
 }
 
 impl Planner {
@@ -55,65 +56,72 @@ impl Planner {
             .map(|t| (t.to_string(), Planner::dijkstra(&valves, t)))
             .collect();
 
-        Self{
+        Self {
             valves,
-            node_distances
+            node_distances,
         }
     }
 
     fn plan(&self) -> u32 {
-        let mut know_best: HashMap<(&str, BTreeSet<&str>), (Vec<&str>, u32)> = HashMap::new();
+        let mut know_best: HashMap<(u32, &str, Vec<&str>), (Vec<&str>, u32)> = HashMap::new();
         let targets: Vec<_> = self.valves.values()
             .filter(|v| v.flow > 0)
             .map(|v| v.name.as_str())
+            .sorted()
             .collect();
 
-        let remaining: BTreeSet<&str> = targets.iter().map(|s| *s).collect();
-        let (p, score) = self.plan_next("AA", remaining, &mut know_best);
+        self.plan_next(30, "AA", targets.clone(), &mut know_best);
+        let (p, score) = &know_best[&(30, "AA", targets)];
         dbg!(p);
         *score
     }
 
     fn plan_next<'a, 'b>(
         &'b self,
+        time_left: u32,
         from: &'b str,
-        remaining: BTreeSet<&'b str>,
-        known_best: &'a mut HashMap<(&'b str, BTreeSet<&'b str>), (Vec<&'b str>, u32)>,
-    ) -> &'a (Vec<&str>, u32) {
-        let k = (from, remaining);
-        if known_best.contains_key(&k) {
-            &known_best[&k]
-        } else if k.1.len() == 1 {
-            let v = *k.1.iter().next().unwrap();
-            let plan = vec![v];
-            let score = self.score(&plan);
-            known_best.entry(k).or_insert((plan, score))
-        } else {
-            let best = k.1.iter()
-                .map(|v| {
-                    let mut rest = k.1.clone();
-                    rest.remove(*v);
-                    let next_best = self.plan_next(
-                        v,
-                        rest,
-                        known_best,
-                    );
-                    let path: Vec<_> = once(*v).chain(next_best.0.iter().copied()).collect();
-                    let score = self.score(&path);
+        remaining: Vec<&'b str>,
+        known_best: &'a mut HashMap<(u32, &'b str, Vec<&'b str>), (Vec<&'b str>, u32)>,
+    ) {
+        let k = (time_left, from, remaining);
+        if !known_best.contains_key(&k) {
+            let next_best = k.2.iter()
+                .filter_map(|v| {
+                    let cost = 1 + &self.node_distances[from][*v];
+                    if time_left >= cost {
+                        let rest: Vec<_> = k.2.iter().filter(|w| **w != *v).copied().collect();
+                        let time = time_left - cost;
+                        self.plan_next(
+                            time,
+                            v,
+                            rest.clone(),
+                            known_best,
+                        );
+                        let next_best = &known_best.get(&(time, v, rest));
+                        if let Some(next) = next_best {
+                            let path: Vec<_> = once(*v).chain(next.0.iter().copied()).collect();
+                            let score = self.score(&path, time_left, from);
 
-                    (path, score)
+                            Some((path, score))
+                        } else {
+                            None
+                        }
+                    } else {
+                        None
+                    }
                 })
                 .max_by_key(|(_, score)| *score)
-                .unwrap();
-            known_best.entry(k).or_insert(best)
+                .unwrap_or((Vec::new(), 0));
+            println!("At {} w/ {}, best: {:?} {}", from, time_left, &next_best.0, next_best.1);
+            known_best.entry(k).or_insert(next_best);
         }
     }
 
-    fn score(&self, plan: &[&str]) -> u32 {
-        let mut at = "AA";
+    fn score(&self, plan: &[&str], time_left: u32, from: &str) -> u32 {
+        let mut at = from;
 
         let mut score = 0;
-        let mut t = 30;
+        let mut t = time_left;
         for &target in plan {
             let distances = &self.node_distances[at];
             if t > distances[target] + 1 {
@@ -173,6 +181,7 @@ impl Planner {
 }
 
 fn main() -> Result<()> {
+    // let input: Vec<Valve> = TEST.lines().map(|l| l.parse().unwrap()).collect();
     let input: Vec<Valve> = INPUT.lines().map(|l| l.parse().unwrap()).collect();
 
     let planner = Planner::new(&input);
@@ -194,6 +203,22 @@ Valve GG has flow rate=0; tunnels lead to valves FF, HH
 Valve HH has flow rate=22; tunnel leads to valve GG
 Valve II has flow rate=0; tunnels lead to valves AA, JJ
 Valve JJ has flow rate=21; tunnel leads to valve II"#;
+
+// VR 11
+// KZ 18
+// AJ 6
+// VG 25
+// IR 10
+// SO 22
+// SC 14
+// RO 19
+// JL 21
+// PW 9
+// DI 23
+// JD 15
+// SP 24
+// OM 7
+// RI 3
 
 const INPUT: &str = r#"Valve VR has flow rate=11; tunnels lead to valves LH, KV, BP
 Valve UV has flow rate=0; tunnels lead to valves GH, RO
