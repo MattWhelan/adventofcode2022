@@ -63,15 +63,15 @@ impl Planner {
     }
 
     fn plan(&self) -> u32 {
-        let mut know_best: HashMap<(u32, &str, Vec<&str>), (Vec<&str>, u32)> = HashMap::new();
+        let mut known_best: HashMap<(u32, &str, Vec<&str>), (Vec<&str>, u32)> = HashMap::new();
         let targets: Vec<_> = self.valves.values()
             .filter(|v| v.flow > 0)
             .map(|v| v.name.as_str())
             .sorted()
             .collect();
 
-        self.plan_next(30, "AA", targets.clone(), &mut know_best);
-        let (p, score) = &know_best[&(30, "AA", targets)];
+        self.plan_next(30, "AA", targets.clone(), &mut known_best);
+        let (p, score) = &known_best[&(30, "AA", targets)];
         dbg!(p);
         *score
     }
@@ -112,7 +112,76 @@ impl Planner {
                 })
                 .max_by_key(|(_, score)| *score)
                 .unwrap_or((Vec::new(), 0));
-            println!("At {} w/ {}, best: {:?} {}", from, time_left, &next_best.0, next_best.1);
+            known_best.entry(k).or_insert(next_best);
+        }
+    }
+
+    fn plan_2(&self) -> u32 {
+        let mut known_best: HashMap<([u32; 2], [&str; 2], Vec<&str>), (Vec<(&str, u32)>, u32)> = HashMap::new();
+        let targets: Vec<_> = self.valves.values()
+            .filter(|v| v.flow > 0)
+            .map(|v| v.name.as_str())
+            .sorted()
+            .collect();
+
+        self.plan_next_2([26, 26], ["AA", "AA"], targets.clone(), &mut known_best);
+        let (p, score) = &known_best[&([26, 26], ["AA", "AA"], targets)];
+        dbg!(p);
+        *score
+    }
+
+    fn plan_next_2<'a, 'b>(
+        &'b self,
+        time_left: [u32; 2],
+        from: [&'b str; 2],
+        remaining: Vec<&'b str>,
+        known_best: &'a mut HashMap<([u32; 2], [&'b str; 2], Vec<&'b str>), (Vec<(&'b str, u32)>, u32)>,
+    ) {
+        let k = (time_left, from, remaining);
+        if !known_best.contains_key(&k) {
+            let next_best = k.2.iter()
+                .filter_map(|v| {
+                    let i = if time_left[0] < time_left[1] {
+                        1
+                    } else {
+                        0
+                    };
+                    let cost = 1 + &self.node_distances[from[i]][*v];
+                    let time_budget = time_left[i];
+                    let pos = {
+                        let mut pos = from.clone();
+                        pos[i] = v;
+                        pos
+                    };
+                    if time_budget >= cost {
+                        let rest: Vec<_> = k.2.iter().filter(|w| **w != *v).copied().collect();
+                        let time = {
+                            let mut time = time_left.clone();
+                            time[i] = time_budget - cost;
+                            time
+                        };
+                        self.plan_next_2(
+                            time,
+                            pos,
+                            rest.clone(),
+                            known_best,
+                        );
+                        let next_best = &known_best.get(&(time, pos, rest));
+                        if let Some(next) = next_best {
+                            let step = (*v, time_budget - cost);
+                            let path: Vec<_> = once(step).chain(next.0.iter().copied()).collect();
+                            let score = self.score_2(&path);
+
+                            Some((path, score))
+                        } else {
+                            None
+                        }
+                    } else {
+                        None
+                    }
+                })
+                .max_by_key(|(_, score)| *score)
+                .unwrap_or((Vec::new(), 0));
             known_best.entry(k).or_insert(next_best);
         }
     }
@@ -134,6 +203,12 @@ impl Planner {
         }
 
         score
+    }
+
+    fn score_2(&self, plan: &[(&str, u32)]) -> u32 {
+        plan.iter()
+            .map(|&(v, t)| self.valves[v].flow * t)
+            .sum()
     }
 
     fn neighbors<'a>(valves: &'a HashMap<String, Valve>, v: &str) -> impl Iterator<Item=&'a str> {
@@ -189,6 +264,9 @@ fn main() -> Result<()> {
     let score = planner.plan();
     println!("Part 1: {}", score);
     // low 1447
+
+    let score2 = planner.plan_2();
+    println!("Part 2: {}", score2);
 
     Ok(())
 }
