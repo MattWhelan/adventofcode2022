@@ -19,7 +19,9 @@ impl FromStr for Valve {
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         lazy_static! {
-            static ref RE: Regex = Regex::new(r"Valve (\w+) has flow rate=(\d+); tunnels? leads? to valves? (.*)").unwrap();
+            static ref RE: Regex =
+                Regex::new(r"Valve (\w+) has flow rate=(\d+); tunnels? leads? to valves? (.*)")
+                    .unwrap();
         }
         if let Some(caps) = RE.captures(s) {
             let name = caps[1].to_string();
@@ -43,14 +45,20 @@ struct Planner {
 
 impl Planner {
     fn new(valves: &[Valve]) -> Self {
-        let valves: HashMap<String, Valve> = valves.iter().cloned().map(|v: Valve| (v.name.to_string(), v)).collect();
+        let valves: HashMap<String, Valve> = valves
+            .iter()
+            .cloned()
+            .map(|v: Valve| (v.name.to_string(), v))
+            .collect();
 
-        let targets: Vec<_> = valves.values()
+        let targets: Vec<_> = valves
+            .values()
             .filter(|v| v.flow > 0)
             .map(|v| v.name.as_str())
             .collect();
 
-        let node_distances: HashMap<String, HashMap<String, u32>> = targets.iter()
+        let node_distances: HashMap<String, HashMap<String, u32>> = targets
+            .iter()
             .map(|v| *v)
             .chain(once("AA"))
             .map(|t| (t.to_string(), Planner::dijkstra(&valves, t)))
@@ -64,7 +72,9 @@ impl Planner {
 
     fn plan(&self) -> u32 {
         let mut known_best: HashMap<(u32, &str, Vec<&str>), (Vec<&str>, u32)> = HashMap::new();
-        let targets: Vec<_> = self.valves.values()
+        let targets: Vec<_> = self
+            .valves
+            .values()
             .filter(|v| v.flow > 0)
             .map(|v| v.name.as_str())
             .sorted()
@@ -85,40 +95,39 @@ impl Planner {
     ) {
         let k = (time_left, from, remaining);
         if !known_best.contains_key(&k) {
-            let next_best = k.2.iter()
-                .filter_map(|v| {
-                    let cost = 1 + &self.node_distances[from][*v];
-                    if time_left >= cost {
-                        let rest: Vec<_> = k.2.iter().filter(|w| **w != *v).copied().collect();
-                        let time = time_left - cost;
-                        self.plan_next(
-                            time,
-                            v,
-                            rest.clone(),
-                            known_best,
-                        );
-                        let next_best = &known_best.get(&(time, v, rest));
-                        if let Some(next) = next_best {
-                            let path: Vec<_> = once(*v).chain(next.0.iter().copied()).collect();
-                            let score = self.score(&path, time_left, from);
+            let next_best =
+                k.2.iter()
+                    .filter_map(|v| {
+                        let cost = 1 + &self.node_distances[from][*v];
+                        if time_left >= cost {
+                            let rest: Vec<_> = k.2.iter().filter(|w| **w != *v).copied().collect();
+                            let time = time_left - cost;
+                            self.plan_next(time, v, rest.clone(), known_best);
+                            let next_best = &known_best.get(&(time, v, rest));
+                            if let Some(next) = next_best {
+                                let path: Vec<_> = once(*v).chain(next.0.iter().copied()).collect();
+                                let score = self.score(&path, time_left, from);
 
-                            Some((path, score))
+                                Some((path, score))
+                            } else {
+                                None
+                            }
                         } else {
                             None
                         }
-                    } else {
-                        None
-                    }
-                })
-                .max_by_key(|(_, score)| *score)
-                .unwrap_or((Vec::new(), 0));
+                    })
+                    .max_by_key(|(_, score)| *score)
+                    .unwrap_or((Vec::new(), 0));
             known_best.entry(k).or_insert(next_best);
         }
     }
 
     fn plan_2(&self) -> u32 {
-        let mut known_best: HashMap<([u32; 2], [&str; 2], Vec<&str>), (Vec<(&str, u32)>, u32)> = HashMap::new();
-        let targets: Vec<_> = self.valves.values()
+        let mut known_best: HashMap<([u32; 2], [&str; 2], Vec<&str>), (Vec<(&str, u32)>, u32)> =
+            HashMap::new();
+        let targets: Vec<_> = self
+            .valves
+            .values()
             .filter(|v| v.flow > 0)
             .map(|v| v.name.as_str())
             .sorted()
@@ -135,17 +144,18 @@ impl Planner {
         time_left: [u32; 2],
         from: [&'b str; 2],
         remaining: Vec<&'b str>,
-        known_best: &'a mut HashMap<([u32; 2], [&'b str; 2], Vec<&'b str>), (Vec<(&'b str, u32)>, u32)>,
+        known_best: &'a mut HashMap<
+            ([u32; 2], [&'b str; 2], Vec<&'b str>),
+            (Vec<(&'b str, u32)>, u32),
+        >,
     ) {
         let k = (time_left, from, remaining);
         if !known_best.contains_key(&k) {
-            let next_best = k.2.iter()
+            let next_best = k
+                .2
+                .iter()
                 .filter_map(|v| {
-                    let i = if time_left[0] < time_left[1] {
-                        1
-                    } else {
-                        0
-                    };
+                    let i = if time_left[0] < time_left[1] { 1 } else { 0 };
                     let cost = 1 + &self.node_distances[from[i]][*v];
                     let time_budget = time_left[i];
                     let pos = {
@@ -160,12 +170,7 @@ impl Planner {
                             time[i] = time_budget - cost;
                             time
                         };
-                        self.plan_next_2(
-                            time,
-                            pos,
-                            rest.clone(),
-                            known_best,
-                        );
+                        self.plan_next_2(time, pos, rest.clone(), known_best);
                         let next_best = &known_best.get(&(time, pos, rest));
                         if let Some(next) = next_best {
                             let step = (*v, time_budget - cost);
@@ -206,18 +211,17 @@ impl Planner {
     }
 
     fn score_2(&self, plan: &[(&str, u32)]) -> u32 {
-        plan.iter()
-            .map(|&(v, t)| self.valves[v].flow * t)
-            .sum()
+        plan.iter().map(|&(v, t)| self.valves[v].flow * t).sum()
     }
 
-    fn neighbors<'a>(valves: &'a HashMap<String, Valve>, v: &str) -> impl Iterator<Item=&'a str> {
+    fn neighbors<'a>(valves: &'a HashMap<String, Valve>, v: &str) -> impl Iterator<Item = &'a str> {
         valves[v].tunnels.iter().map(|s| s.as_str())
     }
 
     fn dijkstra<'a>(valves: &'a HashMap<String, Valve>, start: &'a str) -> HashMap<String, u32> {
         let mut unvisited: HashSet<&str> = valves.keys().map(|s| s.as_str()).collect();
-        let mut distance: HashMap<&str, u32> = valves.keys().map(|k| (k.as_str(), u32::MAX)).collect();
+        let mut distance: HashMap<&str, u32> =
+            valves.keys().map(|k| (k.as_str(), u32::MAX)).collect();
         let mut current = start;
 
         *distance.entry(start).or_default() = 0;
@@ -241,7 +245,8 @@ impl Planner {
             if let Some((next, d)) = distance
                 .iter()
                 .filter(|(p, _)| unvisited.contains(&**p))
-                .min_by_key(|(_, d)| *d) {
+                .min_by_key(|(_, d)| *d)
+            {
                 if *d == u32::MAX {
                     break;
                 }

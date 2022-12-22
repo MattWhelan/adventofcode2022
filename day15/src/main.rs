@@ -1,8 +1,8 @@
-use std::ops::Range;
 use anyhow::{Error, Result};
-use std::str::FromStr;
 use lazy_static::lazy_static;
 use regex::Regex;
+use std::ops::Range;
+use std::str::FromStr;
 
 #[derive(Debug)]
 struct Sensor {
@@ -14,8 +14,11 @@ impl FromStr for Sensor {
     type Err = anyhow::Error;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        lazy_static!{
-            static ref RE: Regex = Regex::new(r"Sensor at x=([-\d]+), y=([-\d]+): closest beacon is at x=([-\d]+), y=([-\d]+)").unwrap();
+        lazy_static! {
+            static ref RE: Regex = Regex::new(
+                r"Sensor at x=([-\d]+), y=([-\d]+): closest beacon is at x=([-\d]+), y=([-\d]+)"
+            )
+            .unwrap();
         }
 
         if let Some(caps) = RE.captures(s) {
@@ -25,7 +28,7 @@ impl FromStr for Sensor {
             let by: i64 = caps[4].parse().unwrap();
             Ok(Sensor {
                 pos: [sx, sy],
-                beacon: [bx, by]
+                beacon: [bx, by],
             })
         } else {
             Err(Error::msg("No match"))
@@ -56,16 +59,18 @@ impl Sensor {
         p_dist > b_dist
     }
 
-    fn outline(&self, bounds: Range<i64>) -> impl Iterator<Item=[i64; 2]> + '_{
-        let r = Sensor::manh_dist(&self.pos, &self.beacon)+1;
+    fn outline(&self, bounds: Range<i64>) -> impl Iterator<Item = [i64; 2]> + '_ {
+        let r = Sensor::manh_dist(&self.pos, &self.beacon) + 1;
 
-        (-r..=r).flat_map(move |dx| {
-            let dy = (r-dx).abs();
-            [
-                [self.pos[0]+dx, self.pos[1]+dy],
-                [self.pos[0]+dx, self.pos[1]-dy],
-            ]
-        }).filter(move |pt| bounds.contains(&pt[0]) && bounds.contains(&pt[1]))
+        (-r..=r)
+            .flat_map(move |dx| {
+                let dy = (r - dx).abs();
+                [
+                    [self.pos[0] + dx, self.pos[1] + dy],
+                    [self.pos[0] + dx, self.pos[1] - dy],
+                ]
+            })
+            .filter(move |pt| bounds.contains(&pt[0]) && bounds.contains(&pt[1]))
     }
 }
 
@@ -73,11 +78,20 @@ fn main() -> Result<()> {
     let input: Vec<Sensor> = INPUT.lines().map(|l| l.parse().unwrap()).collect();
 
     {
-        let min_x = input.iter().flat_map(|s| [s.pos[0], s.beacon[0]]).min().unwrap();
-        let max_x = input.iter().flat_map(|s| [s.pos[0], s.beacon[0]]).max().unwrap();
+        let min_x = input
+            .iter()
+            .flat_map(|s| [s.pos[0], s.beacon[0]])
+            .min()
+            .unwrap();
+        let max_x = input
+            .iter()
+            .flat_map(|s| [s.pos[0], s.beacon[0]])
+            .max()
+            .unwrap();
         let rng = max_x - min_x;
 
-        let non_beacon_points = (min_x - rng..max_x + rng).map(|x| [x, 2000000])
+        let non_beacon_points = (min_x - rng..max_x + rng)
+            .map(|x| [x, 2000000])
             .filter(|pt| input.iter().any(|s| s.cant_be_beacon(&pt)))
             .count();
 
@@ -86,9 +100,15 @@ fn main() -> Result<()> {
     {
         // let limit = 20;
         let limit = 4_000_000;
-        if let Some(distress_beacon) = input.iter().flat_map(|s| s.outline(0..limit+1))
-            .find(|pt| input.iter().all(|s| s.could_be_beacon(pt))) {
-            println!("Part 2: {}", distress_beacon[0]*4000000 + distress_beacon[1]);
+        if let Some(distress_beacon) = input
+            .iter()
+            .flat_map(|s| s.outline(0..limit + 1))
+            .find(|pt| input.iter().all(|s| s.could_be_beacon(pt)))
+        {
+            println!(
+                "Part 2: {}",
+                distress_beacon[0] * 4000000 + distress_beacon[1]
+            );
         } else {
             println!("Fail");
         }
